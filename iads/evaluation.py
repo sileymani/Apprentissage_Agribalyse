@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import math
 import copy
+import matplotlib.pyplot as plt
 
 def crossval(X, Y, n_iterations, iteration):
     n = len(X)
@@ -26,19 +27,6 @@ def crossval(X, Y, n_iterations, iteration):
     return Xapp, Yapp, Xtest, Ytest
 
 # code de la validation croisée (version qui respecte la distribution des classes)
-
-# def crossval_strat(X, Y, n_iterations, iteration):
-#     X1 = X[Y==1]
-#     Y1 = Y[Y==1]
-#     X_1 = X[Y==-1]
-#     Y_1 = Y[Y==-1]
-#     Xapp1, Yapp1, Xtest1, Ytest1 = crossval(list(X1), list(Y1), n_iterations, iteration)
-#     Xapp_1, Yapp_1, Xtest_1, Ytest_1 = crossval(list(X_1), list(Y_1), n_iterations, iteration)
-#     Xapp = Xapp_1 +  Xapp1
-#     Yapp = Yapp_1 + Yapp1
-#     Xtest = Xtest_1 + Xtest1
-#     Ytest = Ytest_1 + Ytest1
-#     return np.asarray(Xapp), np.asarray(Yapp), np.asarray(Xtest), np.asarray(Ytest)
 
 def crossval_strat(X, Y, n_iterations, iteration):
     n = len(X)
@@ -64,24 +52,11 @@ def crossval_strat(X, Y, n_iterations, iteration):
     Yapp = np.concatenate([Y[:test_start], Y[test_end:]])
     return Xapp, Yapp, Xtest, Ytest
 
+import copy
 
-def analyse_perfs(L):
-    """ L : liste de nombres réels non vide
-        rend le tuple (moyenne, écart-type)
-    """
-    moyenne = sum(L)/len(L)
-    
-    ecart_type=0
-    for pref in L:
-        ecart_type=ecart_type+((pref-moyenne)*(pref-moyenne))
-        
-    return (moyenne,math.sqrt(ecart_type/len(L)))
-    raise NotImplementedError("Vous devez implémenter cette fonction !")   
-
-def validation_croisee(C, DS, nb_iter):
+def validation_croisee(C, X,Y, nb_iter):
     """ Classifieur * tuple[array, array] * int -> tuple[ list[float], float, float]
     """
-    X, Y = DS 
     perf = []
     for i in range(nb_iter):
         newC = copy.deepcopy(C)
@@ -92,6 +67,59 @@ def validation_croisee(C, DS, nb_iter):
         print(i,": taille app.= ",Yapp.shape[0],"taille test= ",Ytest.shape[0],"Accuracy:",acc_i)
     (perf_moy, perf_sd) = analyse_perfs(perf)
     return (perf, perf_moy, perf_sd)
+
+def analyse_perfs(L):
+    """ L : liste de nombres réels non vide
+        rend le tuple (moyenne, écart-type)
+    """
+    moyenne=sum(L)/len(L)
+
+    ecart_type=0
+    for pref in L:
+        ecart_type=ecart_type+((pref-moyenne)*(pref-moyenne))
+
+    return (moyenne,math.sqrt(ecart_type/len(L)))
+
+def validation_croisee_size(C, X, Y, nb_iter, sizes):
+    """
+        Cette fonction nous fait la validation croisé en fonction de sous ensemble de l'ensemble d'apprentissage.
+        Classifieur * tuple[array, array] * int * list[int] -> tuple[list[float], float, float]
+    """
+    perf = []
+    for train_size in sizes:
+        acc_iter = []
+        for i in range(nb_iter):
+            newC = copy.deepcopy(C)
+            Xapp, Yapp, Xtest, Ytest = crossval_strat(X, Y, nb_iter, i)
+            # Réduire la taille de l'ensemble d'apprentissage
+            Xapp = Xapp[:train_size]
+            Yapp = Yapp[:train_size]
+            newC.train(Xapp, Yapp)
+            acc_i = newC.accuracy(Xtest, Ytest)
+            acc_iter.append(acc_i)
+            #print(f"Iteration {i}: taille app. = {train_size}, taille test = {Ytest.shape[0]}, Accuracy: {acc_i}")
+        perf.append(acc_iter)
+    
+    # Calcul des moyennes et des écarts types des performances
+    perf_moy = [np.mean(acc_iter) for acc_iter in perf]
+    perf_sd = [np.std(acc_iter) for acc_iter in perf]
+    
+    return perf, perf_moy, perf_sd   
+
+def plot_performance(train_sizes, perf_moy_list, perf_sd_list, labels):
+    """
+        list[int] * list[list[float]] * list[list[float]] * list[str] -> None
+    """ 
+    
+    for perf_moy, perf_sd, label in zip(perf_moy_list, perf_sd_list, labels):
+        plt.errorbar(train_sizes, perf_moy, yerr=perf_sd, marker='o', label=label)
+    
+    plt.xlabel('Taille de l\'ensemble d\'apprentissage')
+    plt.ylabel('Accuracy')
+    plt.title('Accuracy en fonction de la quantité de données')
+    plt.legend()
+    plt.show()
+
 
 # ------------------------ 
 #TODO: à compléter  plus tard
